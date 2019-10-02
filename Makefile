@@ -18,7 +18,7 @@ help:; @echo "  "
 	@echo "make clean	Remove *.o and executable files"
 	@echo "  "
 
-jacobi: jacobi
+jacobi: jacobi.c
 	$(CC) jacobi.c -o jacobi -lm
 clean:
 	rm -f ${TARGET} ${TARGET:=.o}
