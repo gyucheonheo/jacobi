@@ -11,14 +11,14 @@ $>make jacobi_mp /* openMP Version */
 
 ```bash
 $>./jacobi -n <size> -i <iterations> -c <convergence> /* Serial Version */
-$> openMP will be updated soon.
+$>./jacobi_mp -t <threads> -n <size> -i <iterations> -c <convergence> /* OpenMP Version */
 ```
 
 ## HOW TO TEST
 
 ```bash
 $>make test    /* Serial Version */
-$>make test_mp /* openMP Version */
+$>make test_mp /* OpenMP Version */
 ```
 
 
