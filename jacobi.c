@@ -1,3 +1,5 @@
+#include <omp.h>
+#include <sys/time.h>
 #include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,10 +15,9 @@ usage(){
   printf("OPTIONS: \n");
   printf("\t -n Integer \t\t The size of n x n matrix for A\n");
   printf("\t -i Integer \t\t The number of iterations \n");
-  printf("\t -c Double  \t\t The threshold of convergence \n");
-    
+  printf("\t -c Double  \t\t The convergence \n"); 
   printf("Example : \n");
-  printf("   ./jacobi -n 5 -i 25 -c 0.00001\n");
+  printf("   ./jacobi -n 5 -i 25 -c 0.001 \n");
 }
 
 void
@@ -46,9 +47,9 @@ getDiagonal(double ** A, double **D, int n){
   for(i = 0; i < n; i++){
     for(j = 0; j < n; j++){
       if (i == j){
-	D[i][i] = A[i][i];
+    	D[i][i] = A[i][i];
       } else {
-      D[i][j] = 0.0;
+        D[i][j] = 0.0;
       }
     }
   }
@@ -76,66 +77,63 @@ getRemainder(double ** A, double **R, int n){
 
 /*
  * Name : jacobi
- * Args : (Original, Diagonal, Remainder, size)
+ * Args : (Original, Diagonal, Iteration, Remainder, size)
  */
-int
-jacobi(double **A, double *b, double *x, double *x_guess, int iteration, double c, int n){
+double *
+jacobi(double **A, double *b, double *x, int iteration, int n, double convergence){
 
 
   double **R = malloc( n * sizeof(double *) );
   double **D = malloc( n * sizeof(double *) );
-  double *temp;
-
-  int i,j;
-
-  double guess;
-  double convergence;
-  double tdiff;
-  double diff = 0.0;
+  double *x_temp;
+  //  double convergence;
   int k;
+ 
   for(k = 0; k < n; k++){
     R[k] = (double *)malloc(n * sizeof(double) );
     D[k] = (double *)malloc(n * sizeof(double) );
   }
-
+  
   getDiagonal(A, D, n); 
   getRemainder(A, R, n);
-
-
-  /* Looping */
-  k=0;
-  do{
-    for(i=0; i < n; i++){ /* row */
-      guess = 0.0;
-      for(j=0; j < n; j++){ /* column */
-	if ( i != j ){
-	  guess += (A[i][j]*x[j]);	  
-	}
-      }
-      x_guess[i] = (b[i] - guess)/A[i][i];
+  
+  double *prev_x = malloc(n * sizeof(double));
+  for(int i = 0; i < iteration; i++){
+    /* Dot product of remainder R and guess x */
+    for(int p = 0; p < n; p++){
+        double result = 0.0;
+        for(int q = 0; q < n; q++){
+            result += (R[p][q]*x[q]);
+        }
+        x[p] = (b[p]- result)/D[p][p];
     }
-    /* Swapping */
-    temp = x;
-    x = x_guess;
-    x_guess = temp;
-
-    int t;
-    for(t = 0; t < n; t++){
-      tdiff = x_guess[t] - x[t];
-      diff += pow(tdiff, 2.0);
+    if ( i == 0 ){
+        prev_x = x; 
     }
-    k++;
+    double tolerance = 0.0;
+    double tolerance_c = 0.0;
+    double tolerance_p = 0.0;    
+    if ( i > 0 && i < n ){
+        for(int xi = 0; xi < n; xi++){
+           tolerance_c += pow(x[xi]-prev_x[xi], 2.0);
+           tolerance_p += pow(x[xi], 2.0);
+        }
+        tolerance = sqrt(tolerance_c) / sqrt(tolerance_p); 
+        if ( (i > iteration) && (tolerance < convergence) ){
+            free(prev_x);
+            return x;
+        }
+    }
+    if (i > 0){
+        prev_x = x;
+    }
   }
-  while ( (k < iteration) && (sqrt(diff) > c ));
-
-  for(k = 0; k < n; k++){
-    free(R[k]);
-    free(D[k]);
-  }
-  free(R);
-  free(D);
+      
+  jacobi_free(R,n);
+  jacobi_free(D,n);
+  free(prev_x);
+  return x;
 }
-
 
 int
 main(int argc, char **argv){
@@ -144,11 +142,10 @@ main(int argc, char **argv){
   int opt;
   int n;
   int nflag = 0;
-  double c;
-  int cflag = 0;
   int i;
   int iflag = 0;
-
+  double c;
+  int cflag = 0;
 
   /* Arguments */
 
@@ -163,10 +160,7 @@ main(int argc, char **argv){
       nflag = 1;
       break;
     case 'c':
-      if( sscanf(optarg, "%lf", &c) == 0){
-	usage();
-	exit(ERROR);
-      };
+      c = atof(optarg);
       cflag = 1;
       break;
     default:
@@ -184,48 +178,49 @@ main(int argc, char **argv){
   /* Allocate memory */
 
 
-  double **A = malloc( 3 * sizeof(double *) );
-
+  double **A = malloc( n * sizeof(double *) );
   double *b = malloc ( n * sizeof(double));
   double *x = malloc ( n * sizeof(double));
-  double *x_guess = malloc( n * sizeof(double));
-
-  int k;
-  int l;
-  double rsum, val;
-  for(k = 0; k < n; k++){
-    A[k] = (double *)malloc(3 * sizeof(double) );
-  }
-  /* Put random number into A */
-  srand(0);
-  for(k = 0; k < n; k++){
-    rsum = 0.0;
-    x[k] = 0.0;
-    for(l = 0; l < n; l++){
-      val = rand() / (double)RAND_MAX;
-      A[k][l] = val;
-      rsum+=val;
-    }
-    A[k][k] +=rsum;
-    b[k] = rand()/(double)RAND_MAX;
-  }
   
+  int k;
+  /* Allocate memory */
+  for(k = 0; k < n; k++){
+    A[k] = (double *)malloc( n * sizeof(double) );
+  }
+  /* Put random numbers into A and B */
+  
+ /* for(k = 0; k < n; k++){
+    for(l = 0; l < n; l++){
+      A[k][l] = randfrom(10,10);
+    }
+    [k] = randfrom(10,10);
+  }*/
+    A[0][0] = 2;
+    A[0][1] = 1;
+    A[1][0] = 5;
+    A[1][1] = 7;
 
-
+    b[0] = 11;
+    b[1] = 13;
+    
+    x[0] = 1;
+    x[1] = 1;
   /* Run Jacobi */
-  jacobi(A, b, x, x_guess, i, c, n);
-
+  double start = omp_get_wtime();
+  x = jacobi(A, b, x, i, n, c);
+  double end = omp_get_wtime();
   /* Compute Error */
   double error = getError(A, x, b, n);
+  printf("Elapsed time : %lf\n", end-start);
+  printf("Error : %lf\n", getError(A,x,b,n));
+  printf("Solution ");
+  for(int asdf = 0; asdf < n; asdf++){
+    printf("%lf ", x[asdf]);
+  }
 
-  printf("Error value : %lf\n", error);
-  
   free(b);
   free(x);
-  free(x_guess);
   jacobi_free(A,n);
-
-  
 }
 
 double
