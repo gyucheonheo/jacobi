@@ -1,7 +1,7 @@
 OPSYS = $(shell uname -s)
 CC=gcc
 CFLAGS=-Wall -fopenmp
-LFLAGS=-lm
+LIBS=-lm
 
 TARGET=jacobi jacobi_mp
 
@@ -19,7 +19,19 @@ help:; @echo "  "
 	@echo "  "
 
 jacobi: jacobi.c
-	$(CC) jacobi.c -o jacobi -lm
+	$(CC) $(CFLAGS) jacobi.c -o jacobi $(LIBS)
+jacobi_mp: jacobi_mp.c
+	$(CC) $(CFLAGS) jacobi_mp.c -o jacobi_mp $(LIBS)
+test:
+	./jacobi -n 500 -i 25 -c 0.0001
+	./jacobi_mp -t 8 -n 500 -i 25 -c 0.0001
+test1:
+	./jacobi -n 5000 -i 25 -c 0.0001
+	./jacobi_mp -t 8 -n 5000 -i 25 -c 0.0001
+test2:
+	./jacobi -n 10000 -i 25 -c 0.0001
+	./jacobi_mp -t t -n 10000 -i 25 -c 0.0001
+
 clean:
 	rm -f ${TARGET} ${TARGET:=.o}
 
