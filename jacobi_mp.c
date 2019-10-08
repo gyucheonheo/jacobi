@@ -5,6 +5,7 @@
 #include <math.h>
 #include <omp.h>
 #define ERROR -1
+double getError(double **, double *, double *, int);
 
 int flag=0;
 void
@@ -132,7 +133,8 @@ int main(int argc, char **argv){
    int iflag=0;
    double c;
    int cflag=0;
-   while ( (opt = getopt(argc, argv, "t:n:i:c:")) != -1){
+   int test = 0;
+   while ( (opt = getopt(argc, argv, "t:n:i:c:d")) != -1){
        switch(opt){
         case 't':
           thread = atoi(optarg);
@@ -149,6 +151,9 @@ int main(int argc, char **argv){
         case 'c':
           c = atof(optarg);
           cflag = 1;
+          break;
+        case 'd':
+          test = 1;
           break;
         default:
           usage();
@@ -168,35 +173,55 @@ int main(int argc, char **argv){
      A[k] = (double *)malloc(n*sizeof(double)); 
    }
 
+  if ( test == 1){  
       A[0][0] = 2;
-          A[0][1] = 1;
-              A[1][0] = 5;
-                  A[1][1] = 7;
+      A[0][1] = 1;
+      A[1][0] = 5;
+      A[1][1] = 7;
 
-                      b[0] = 11;
-                          b[1] = 13;
+      b[0] = 11;
+      b[1] = 13;
 
-                              x[0] = 1;
-                                  x[1] = 1;
-  /*
-  for(int k=0; k < n; k++){
-      b[k] = rand()%100; 
-      for(int l=0; l < n; l++){
-        A[k][l] = rand()%100;
-      }
-  }*/
+      x[0] = 1;
+      x[1] = 1;
+    }
+  else {
+      int max_row = n*n; 
+      for(int k=0; k < n; k++){
+          b[k] = rand()% max_row; 
+          for(int l=0; l < n; l++){
+            if (k==l){
+                A[k][l] = rand()%(2*n) + max_row;
+            } else{
+                A[k][l] = rand() % n;
+            }
+        }
+    }
+  }
+
 
    
   double start = omp_get_wtime();
   x = jacobi(A, b, x, i, n, c, thread);
   double end = omp_get_wtime();
+  double error = getError(A, x, b, n);
   printf("Elapsed time : %lf\n", end-start);
-   printf("Solution ");
-    for(int asdf = 0; asdf < n; asdf++){
-           printf("%lf ", x[asdf]);
-            } 
+  printf("Error : %lf\n", error);
   jacobi_free(A, n);
   return 0;
 }
 
-
+double
+getError(double **A, double *x, double *b, int n){
+    double error;
+    double val;
+    for(int i = 0; i < n ; i++){
+        val = 0.0;
+        for(int j = 0; j < n; j++){
+            val += A[i][j] * x[j];
+        }
+        val -= b[i];
+        error += pow(val, 2.0);
+    }
+    return sqrt(error);
+}

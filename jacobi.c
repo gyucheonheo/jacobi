@@ -117,10 +117,9 @@ jacobi(double **A, double *b, double *x, int iteration, int n, double convergenc
         for(int xi = 0; xi < n; xi++){
            tolerance_c += pow(x[xi]-prev_x[xi], 2.0);
            tolerance_p += pow(x[xi], 2.0);
-        }
+        
         tolerance = sqrt(tolerance_c) / sqrt(tolerance_p); 
         if ( (i > iteration) && (tolerance < convergence) ){
-            free(prev_x);
             return x;
         }
     }
@@ -131,10 +130,9 @@ jacobi(double **A, double *b, double *x, int iteration, int n, double convergenc
       
   jacobi_free(R,n);
   jacobi_free(D,n);
-  free(prev_x);
   return x;
 }
-
+}
 int
 main(int argc, char **argv){
   /* Declaration for arguments */
@@ -146,10 +144,10 @@ main(int argc, char **argv){
   int iflag = 0;
   double c;
   int cflag = 0;
-
+  int test = 0;
   /* Arguments */
 
-  while( (opt = getopt(argc, argv, "n:i:c:")) != -1 ){
+  while( (opt = getopt(argc, argv, "n:i:c:d")) != -1 ){
     switch(opt){
     case 'i':
       i = atoi(optarg);
@@ -162,6 +160,9 @@ main(int argc, char **argv){
     case 'c':
       c = atof(optarg);
       cflag = 1;
+      break;
+    case 'd':
+      test = 1;
       break;
     default:
       usage();
@@ -195,6 +196,7 @@ main(int argc, char **argv){
     }
     [k] = randfrom(10,10);
   }*/
+  if (test == 1){
     A[0][0] = 2;
     A[0][1] = 1;
     A[1][0] = 5;
@@ -205,6 +207,20 @@ main(int argc, char **argv){
     
     x[0] = 1;
     x[1] = 1;
+  } else {
+    int max_row = n*n;
+    for(int k = 0; k < n ; k++){
+        b[k] = rand()% max_row;
+        for(int l = 0; l < n; l++){
+            if (k == l){
+                A[k][l] = rand()%(2*n) + max_row;
+            } else{
+                A[k][l] = rand() % n;
+            }
+        }
+    }
+  }
+
   /* Run Jacobi */
   double start = omp_get_wtime();
   x = jacobi(A, b, x, i, n, c);
@@ -212,12 +228,7 @@ main(int argc, char **argv){
   /* Compute Error */
   double error = getError(A, x, b, n);
   printf("Elapsed time : %lf\n", end-start);
-  printf("Error : %lf\n", getError(A,x,b,n));
-  printf("Solution ");
-  for(int asdf = 0; asdf < n; asdf++){
-    printf("%lf ", x[asdf]);
-  }
-
+  printf("Error : %lf\n", error);
   free(b);
   free(x);
   jacobi_free(A,n);
